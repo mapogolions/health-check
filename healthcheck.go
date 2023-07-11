@@ -69,13 +69,12 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 		go func(registration HealthCheckRegistration) {
 			defer group.Done()
 			healthCheckContext := HealthCheckContext{Registration: registration}
-			context, cancel := context.WithTimeout(ctx, registration.Timeout)
+			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
 			defer cancel()
 			start := time.Now()
-			result := <-runHealthCheck(context, healthCheckContext)
-			duration := time.Since(start)
+			result := <-runHealthCheck(newCtx, healthCheckContext)
 			ch <- HealthCheckReportEntry{
-				Duration:    duration,
+				Duration:    time.Since(start),
 				Status:      result.Status,
 				Description: result.Description,
 				Error:       result.Error,
@@ -95,15 +94,23 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 func runHealthCheck(ctx context.Context, healthCheckCtx HealthCheckContext) <-chan HealthCheckResult {
 	ch := make(chan HealthCheckResult)
 	registration := healthCheckCtx.Registration
+
 	go func() {
 		defer close(ch)
 		select {
 		case <-ctx.Done():
 			ch <- HealthCheckResult{Status: registration.FailureStatus, Error: ctx.Err(), Description: ctx.Err().Error()}
-			return
-		case ch <- registration.HealthCheck(ctx, healthCheckCtx):
-			return
+		case result := <-func() <-chan HealthCheckResult {
+			resultStream := make(chan HealthCheckResult)
+			go func() {
+				defer close(resultStream)
+				resultStream <- registration.HealthCheck(ctx, healthCheckCtx)
+			}()
+			return resultStream
+		}():
+			ch <- result
 		}
 	}()
+
 	return ch
 }
