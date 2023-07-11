@@ -80,15 +80,24 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
 			defer cancel()
 			start := time.Now()
-			result := <-runHealthCheck(newCtx, healthCheckContext)
-			ch <- HealthCheckReportEntry{
-				order:       i,
-				Duration:    time.Since(start),
-				Status:      result.Status,
-				Description: result.Description,
-				Error:       result.Error,
-				Data:        result.Data}
-
+			select {
+			case <-ctx.Done():
+				ch <- HealthCheckReportEntry{
+					order:       i,
+					Duration:    time.Since(start),
+					Status:      registration.FailureStatus,
+					Description: ctx.Err().Error(),
+					Error:       ctx.Err(),
+				}
+			case result := <-runHealthCheck(newCtx, healthCheckContext):
+				ch <- HealthCheckReportEntry{
+					order:       i,
+					Duration:    time.Since(start),
+					Status:      result.Status,
+					Description: result.Description,
+					Error:       result.Error,
+					Data:        result.Data}
+			}
 		}(i, registration)
 	}
 	group.Wait()
