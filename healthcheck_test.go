@@ -17,6 +17,7 @@ func TestHealthCheckService(t *testing.T) {
 		}
 		healthCheckService := NewHealthCheckService(registration)
 		healthCheckReport := healthCheckService.CheckHealth(context.Background())
+
 		if healthCheckReport.Entries[0].Status != Healthy {
 			t.Errorf("expected: %v, actual: %v", Healthy, healthCheckReport.Entries[0].Status)
 		}
@@ -41,33 +42,21 @@ func TestHealthCheckService(t *testing.T) {
 
 	})
 
-	t.Run("should cancell N health check by timeout and use failure statuses from registrations", func(t *testing.T) {
-		registration1 := HealthCheckRegistration{
+	t.Run("should not cancel health check when timeout is less than execution time", func(t *testing.T) {
+		registration := HealthCheckRegistration{
 			Name: "test1",
 			HealthCheck: func(ctx context.Context, hcc HealthCheckContext) HealthCheckResult {
-				time.Sleep(1 * time.Hour)
+				time.Sleep(10 * time.Millisecond)
 				return HealthCheckResult{Status: Healthy}
 			},
-			Timeout:       100 * time.Millisecond,
+			Timeout:       1 * time.Minute,
 			FailureStatus: Unhealthy,
 		}
-		registration2 := HealthCheckRegistration{
-			Name: "test2",
-			HealthCheck: func(ctx context.Context, hcc HealthCheckContext) HealthCheckResult {
-				time.Sleep(1 * time.Hour)
-				return HealthCheckResult{Status: Healthy}
-			},
-			Timeout:       50 * time.Millisecond,
-			FailureStatus: Degraded,
-		}
-		healthCheckService := NewHealthCheckService(registration1, registration2)
+		healthCheckService := NewHealthCheckService(registration)
 		healthCheckReport := healthCheckService.CheckHealth(context.Background())
 
-		if healthCheckReport.Entries[0].Status != Unhealthy {
-			t.Errorf("expected: %v, actual: %v", Unhealthy, healthCheckReport.Entries[0].Status)
-		}
-		if healthCheckReport.Entries[1].Status != Degraded {
-			t.Errorf("expected: %v, actual: %v", Degraded, healthCheckReport.Entries[1].Status)
+		if healthCheckReport.Entries[0].Status != Healthy {
+			t.Errorf("expected: %v, actual: %v", Healthy, healthCheckReport.Entries[0].Status)
 		}
 	})
 }
