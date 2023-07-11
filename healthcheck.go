@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 )
@@ -22,12 +23,19 @@ type HealthCheckResult struct {
 }
 
 type HealthCheckReportEntry struct {
+	order       int
 	Duration    time.Duration
 	Status      HealthCheckStatus
 	Description string
 	Error       error
 	Data        map[string]any
 }
+
+type byRegistrationOrder []HealthCheckReportEntry
+
+func (a byRegistrationOrder) Len() int           { return len(a) }
+func (a byRegistrationOrder) Less(i, j int) bool { return a[i].order < a[j].order }
+func (a byRegistrationOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 type HealthCheckRegistration struct {
 	Name          string
@@ -65,8 +73,8 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	ch := make(chan HealthCheckReportEntry, size)
 	group := sync.WaitGroup{}
 	group.Add(size)
-	for _, registration := range service.options.Registrations {
-		go func(registration HealthCheckRegistration) {
+	for i, registration := range service.options.Registrations {
+		go func(i int, registration HealthCheckRegistration) {
 			defer group.Done()
 			healthCheckContext := HealthCheckContext{Registration: registration}
 			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
@@ -74,13 +82,14 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 			start := time.Now()
 			result := <-runHealthCheck(newCtx, healthCheckContext)
 			ch <- HealthCheckReportEntry{
+				order:       i,
 				Duration:    time.Since(start),
 				Status:      result.Status,
 				Description: result.Description,
 				Error:       result.Error,
 				Data:        result.Data}
 
-		}(registration)
+		}(i, registration)
 	}
 	group.Wait()
 	close(ch)
@@ -88,6 +97,7 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	for reportEntry := range ch {
 		reportEntries = append(reportEntries, reportEntry)
 	}
+	sort.Sort(byRegistrationOrder(reportEntries))
 	return HealthCheckReport{Entries: reportEntries}
 }
 
