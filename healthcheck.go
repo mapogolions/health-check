@@ -66,7 +66,8 @@ type HealthCheckService struct {
 }
 
 type HealthCheckReport struct {
-	Entries []HealthCheckReportEntry
+	Entries  []HealthCheckReportEntry
+	Duration time.Duration
 }
 
 func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckReport {
@@ -74,7 +75,9 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	ch := make(chan HealthCheckReportEntry, size)
 	group := sync.WaitGroup{}
 	group.Add(size)
+	start := time.Now()
 	for i, registration := range service.options.Registrations {
+
 		go func(i int, registration HealthCheckRegistration) {
 			defer group.Done()
 			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
@@ -83,7 +86,7 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 			start := time.Now()
 			select {
 			case <-ctx.Done():
-				ch <- HealthCheckReportEntry{
+				ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
 					order:       i,
 					Duration:    time.Since(start),
 					Status:      registration.FailureStatus,
@@ -91,7 +94,7 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 					Error:       ctx.Err(),
 				}
 			case result := <-runHealthCheck(healthCheckContext):
-				ch <- HealthCheckReportEntry{
+				ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
 					order:       i,
 					Duration:    time.Since(start),
 					Status:      result.Status,
@@ -100,15 +103,17 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 					Data:        result.Data}
 			}
 		}(i, registration)
+
 	}
 	group.Wait()
 	close(ch)
+	duration := time.Since(start)
 	reportEntries := make([]HealthCheckReportEntry, 0, size)
 	for reportEntry := range ch {
 		reportEntries = append(reportEntries, reportEntry)
 	}
 	sort.Sort(byRegistrationOrder(reportEntries))
-	return HealthCheckReport{Entries: reportEntries}
+	return HealthCheckReport{Entries: reportEntries, Duration: duration}
 }
 
 func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
