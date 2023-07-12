@@ -10,7 +10,7 @@ func TestHealthCheckService(t *testing.T) {
 	t.Run("should run single health check", func(t *testing.T) {
 		registration := HealthCheckRegistration{
 			Name: "test",
-			HealthCheck: func(ctx context.Context, hcc HealthCheckContext) HealthCheckResult {
+			HealthCheck: func(HealthCheckContext) HealthCheckResult {
 				return HealthCheckResult{Status: Healthy}
 			},
 			Timeout: 2 * time.Second,
@@ -26,7 +26,7 @@ func TestHealthCheckService(t *testing.T) {
 	t.Run("should cancel health check by timeout and use failure status from registration", func(t *testing.T) {
 		registration := HealthCheckRegistration{
 			Name: "test",
-			HealthCheck: func(ctx context.Context, hcc HealthCheckContext) HealthCheckResult {
+			HealthCheck: func(HealthCheckContext) HealthCheckResult {
 				time.Sleep(1 * time.Hour)
 				return HealthCheckResult{Status: Healthy}
 			},
@@ -45,7 +45,7 @@ func TestHealthCheckService(t *testing.T) {
 	t.Run("should not cancel health check when timeout is less than execution time", func(t *testing.T) {
 		registration := HealthCheckRegistration{
 			Name: "test1",
-			HealthCheck: func(ctx context.Context, hcc HealthCheckContext) HealthCheckResult {
+			HealthCheck: func(HealthCheckContext) HealthCheckResult {
 				time.Sleep(10 * time.Millisecond)
 				return HealthCheckResult{Status: Healthy}
 			},

@@ -46,10 +46,11 @@ type HealthCheckRegistration struct {
 }
 
 type HealthCheckContext struct {
+	Context      context.Context
 	Registration HealthCheckRegistration
 }
 
-type HealthCheck func(context.Context, HealthCheckContext) HealthCheckResult
+type HealthCheck func(HealthCheckContext) HealthCheckResult
 
 type HealthCheckServiceOptions struct {
 	Registrations []HealthCheckRegistration
@@ -76,9 +77,9 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	for i, registration := range service.options.Registrations {
 		go func(i int, registration HealthCheckRegistration) {
 			defer group.Done()
-			healthCheckContext := HealthCheckContext{Registration: registration}
 			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
 			defer cancel()
+			healthCheckContext := HealthCheckContext{Registration: registration, Context: newCtx}
 			start := time.Now()
 			select {
 			case <-ctx.Done():
@@ -89,7 +90,7 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 					Description: ctx.Err().Error(),
 					Error:       ctx.Err(),
 				}
-			case result := <-runHealthCheck(newCtx, healthCheckContext):
+			case result := <-runHealthCheck(healthCheckContext):
 				ch <- HealthCheckReportEntry{
 					order:       i,
 					Duration:    time.Since(start),
@@ -110,26 +111,28 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	return HealthCheckReport{Entries: reportEntries}
 }
 
-func runHealthCheck(ctx context.Context, healthCheckCtx HealthCheckContext) <-chan HealthCheckResult {
+func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
 	ch := make(chan HealthCheckResult)
-	registration := healthCheckCtx.Registration
+	registration := ctx.Registration
 
 	go func() {
 		defer close(ch)
 		select {
-		case <-ctx.Done():
-			ch <- HealthCheckResult{Status: registration.FailureStatus, Error: ctx.Err(), Description: ctx.Err().Error()}
-		case result := <-func() <-chan HealthCheckResult {
-			resultStream := make(chan HealthCheckResult)
-			go func() {
-				defer close(resultStream)
-				resultStream <- registration.HealthCheck(ctx, healthCheckCtx)
-			}()
-			return resultStream
-		}():
+		case <-ctx.Context.Done():
+			ch <- HealthCheckResult{Status: registration.FailureStatus, Error: ctx.Context.Err(), Description: ctx.Context.Err().Error()}
+		case result := <-registration.healthCheckChannel(ctx):
 			ch <- result
 		}
 	}()
 
+	return ch
+}
+
+func (registration HealthCheckRegistration) healthCheckChannel(ctx HealthCheckContext) <-chan HealthCheckResult {
+	ch := make(chan HealthCheckResult)
+	go func() {
+		defer close(ch)
+		ch <- registration.HealthCheck(ctx)
+	}()
 	return ch
 }
