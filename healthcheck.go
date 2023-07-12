@@ -119,7 +119,6 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
 	ch := make(chan HealthCheckResult)
 	registration := ctx.Registration
-
 	go func() {
 		defer close(ch)
 		select {
@@ -129,7 +128,6 @@ func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
 			ch <- result
 		}
 	}()
-
 	return ch
 }
 

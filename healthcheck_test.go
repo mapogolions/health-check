@@ -70,7 +70,7 @@ func TestHealthCheckService(t *testing.T) {
 		}
 	})
 
-	t.Run("should not cancel health check when timeout is less than execution time", func(t *testing.T) {
+	t.Run("should not cancel health check when timeout is greather than execution time", func(t *testing.T) {
 		registration := HealthCheckRegistration{
 			Name: "test1",
 			HealthCheck: func(HealthCheckContext) HealthCheckResult {
