@@ -1,6 +1,6 @@
 ### Health Check
 
-This is a vaguely similar fake of a well-known library on .net platform. Written just to get some practice
+Inspired by [Health checks in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-7.0)
 
 ```sh
 go test
