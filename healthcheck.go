@@ -83,23 +83,14 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 			defer cancel()
 			healthCheckContext := HealthCheckContext{Registration: registration, Context: newCtx}
 			start := time.Now()
-			select {
-			case <-ctx.Done():
-				ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
-					order:       i,
-					Duration:    time.Since(start),
-					Status:      registration.FailureStatus,
-					Description: ctx.Err().Error(),
-					Error:       ctx.Err()}
-			case result := <-runHealthCheck(healthCheckContext):
-				ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
-					order:       i,
-					Duration:    time.Since(start),
-					Status:      result.Status,
-					Description: result.Description,
-					Error:       result.Error,
-					Data:        result.Data}
-			}
+			result := <-runHealthCheck(healthCheckContext)
+			ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
+				order:       i,
+				Duration:    time.Since(start),
+				Status:      result.Status,
+				Description: result.Description,
+				Error:       result.Error,
+				Data:        result.Data}
 		}(i, registration)
 	}
 	group.Wait()
