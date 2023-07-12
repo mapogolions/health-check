@@ -59,7 +59,7 @@ func healthCheckBuilder(url string, slowResponseDuration time.Duration) healthch
 				Description: fmt.Sprintf("Slow response. Elapsed: %v", elapsed)}
 		}
 		return healthcheck.HealthCheckResult{
-			Status:      healthcheck.Degraded,
+			Status:      healthcheck.Healthy,
 			Description: fmt.Sprintf("Response. Elapsed: %v", elapsed)}
 	}
 }
