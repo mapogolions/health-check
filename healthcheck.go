@@ -77,7 +77,6 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	group.Add(size)
 	start := time.Now()
 	for i, registration := range service.options.Registrations {
-
 		go func(i int, registration HealthCheckRegistration) {
 			defer group.Done()
 			newCtx, cancel := context.WithTimeout(ctx, registration.Timeout)
@@ -103,7 +102,6 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 					Data:        result.Data}
 			}
 		}(i, registration)
-
 	}
 	group.Wait()
 	close(ch)
@@ -123,7 +121,11 @@ func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
 		defer close(ch)
 		select {
 		case <-ctx.Context.Done():
-			ch <- HealthCheckResult{Status: registration.FailureStatus, Error: ctx.Context.Err(), Description: ctx.Context.Err().Error()}
+			ch <- HealthCheckResult{
+				Status:      registration.FailureStatus,
+				Error:       ctx.Context.Err(),
+				Description: ctx.Context.Err().Error(),
+			}
 		case result := <-registration.healthCheckChannel(ctx):
 			ch <- result
 		}
