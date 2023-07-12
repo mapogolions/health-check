@@ -90,8 +90,7 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 					Duration:    time.Since(start),
 					Status:      registration.FailureStatus,
 					Description: ctx.Err().Error(),
-					Error:       ctx.Err(),
-				}
+					Error:       ctx.Err()}
 			case result := <-runHealthCheck(healthCheckContext):
 				ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
 					order:       i,
@@ -124,8 +123,7 @@ func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
 			ch <- HealthCheckResult{
 				Status:      registration.FailureStatus,
 				Error:       ctx.Context.Err(),
-				Description: ctx.Context.Err().Error(),
-			}
+				Description: ctx.Context.Err().Error()}
 		case result := <-registration.healthCheckChannel(ctx):
 			ch <- result
 		}
