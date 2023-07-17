@@ -6,7 +6,7 @@ Inspired by [Health checks in ASP.NET Core](https://learn.microsoft.com/en-us/as
 go test
 ```
 
-#### Usage
+#### Example
 
 ```
 cd sample
