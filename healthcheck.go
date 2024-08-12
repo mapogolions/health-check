@@ -83,8 +83,8 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 			defer cancel()
 			healthCheckContext := HealthCheckContext{Registration: registration, Context: newCtx}
 			start := time.Now()
-			result := <-runHealthCheck(healthCheckContext)
-			ch <- HealthCheckReportEntry{ // Non-blocking. Buffered channel has sufficient capacity
+			result := runHealthCheck(healthCheckContext)
+			ch <- HealthCheckReportEntry{ // DO NOT use `select`. Non-blocking. Buffered channel has sufficient capacity
 				order:       i,
 				Duration:    time.Since(start),
 				Status:      result.Status,
@@ -104,22 +104,17 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	return HealthCheckReport{Entries: reportEntries, Duration: duration}
 }
 
-func runHealthCheck(ctx HealthCheckContext) <-chan HealthCheckResult {
-	ch := make(chan HealthCheckResult)
-	registration := ctx.Registration
-	go func() {
-		defer close(ch)
-		select {
-		case <-ctx.Context.Done():
-			ch <- HealthCheckResult{
-				Status:      registration.FailureStatus,
-				Error:       ctx.Context.Err(),
-				Description: ctx.Context.Err().Error()}
-		case result := <-registration.healthCheckChannel(ctx):
-			ch <- result
-		}
-	}()
-	return ch
+func runHealthCheck(ctx HealthCheckContext) HealthCheckResult {
+	r := ctx.Registration
+	select {
+	case <-ctx.Context.Done():
+		return HealthCheckResult{
+			Status:      r.FailureStatus,
+			Error:       ctx.Context.Err(),
+			Description: ctx.Context.Err().Error()}
+	case result := <-r.healthCheckChannel(ctx):
+		return result
+	}
 }
 
 func (registration HealthCheckRegistration) healthCheckChannel(ctx HealthCheckContext) <-chan HealthCheckResult {
