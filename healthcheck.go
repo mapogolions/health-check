@@ -104,6 +104,10 @@ func (service *HealthCheckService) CheckHealth(ctx context.Context) HealthCheckR
 	return HealthCheckReport{Entries: reportEntries, Duration: duration}
 }
 
+// Pessimistic approach to operation cancellation.
+// Instead of relying on the user to check `HealthCheckContext.Context` for cancellation,
+// run the operation in a separate goroutine to prevent the health check from hanging indefinitely.
+// In the worst case, the spawned computation may keep running forever, consuming system resources.
 func runHealthCheck(healthCtx HealthCheckContext) HealthCheckResult {
 	r := healthCtx.Registration
 	select {
