@@ -116,12 +116,12 @@ func runHealthCheck(healthCtx HealthCheckContext) HealthCheckResult {
 			Status:      r.FailureStatus,
 			Error:       healthCtx.Context.Err(),
 			Description: healthCtx.Context.Err().Error()}
-	case result := <-r.healthCheckChannel(healthCtx):
+	case result := <-r.healthCheckAsync(healthCtx):
 		return result
 	}
 }
 
-func (registration HealthCheckRegistration) healthCheckChannel(healthCtx HealthCheckContext) <-chan HealthCheckResult {
+func (registration HealthCheckRegistration) healthCheckAsync(healthCtx HealthCheckContext) <-chan HealthCheckResult {
 	ch := make(chan HealthCheckResult)
 	go func() {
 		defer close(ch)
