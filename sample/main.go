@@ -29,7 +29,7 @@ func main() {
 
 	healthCheckService := healthcheck.NewHealthCheckService(googleHealthCheck, githubHealthCheck)
 
-	http.HandleFunc("/healthcheck", HealthCheckHandler(healthCheckService))
+	http.HandleFunc("/healthz", HealthCheckHandler(healthCheckService))
 	err := http.ListenAndServe("localhost:8080", nil)
 
 	if err != nil {
@@ -46,19 +46,29 @@ func HealthCheckHandler(healthCheckService *healthcheck.HealthCheckService) http
 }
 
 func healthCheckBuilder(url string, slowResponseDuration time.Duration) healthcheck.HealthCheck {
-	return func(hcc healthcheck.HealthCheckContext) healthcheck.HealthCheckResult {
+	return func(healthCtx healthcheck.HealthCheckContext) healthcheck.HealthCheckResult {
 		start := time.Now()
 		_, err := http.Get(url)
 		elapsed := time.Since(start)
+		data := map[string]any{
+			"url":  url,
+			"time": fmt.Sprintf("%s", elapsed),
+		}
 		if err != nil {
-			return healthcheck.HealthCheckResult{Status: healthcheck.Unhealthy, Error: err, Description: err.Error()}
+			return healthcheck.HealthCheckResult{
+				Status:      healthcheck.Unhealthy,
+				Error:       err,
+				Description: err.Error(),
+				Data:        data}
 		}
 		if elapsed >= slowResponseDuration {
 			return healthcheck.HealthCheckResult{
+				Data:        data,
 				Status:      healthcheck.Degraded,
 				Description: fmt.Sprintf("Slow response. Elapsed: %v", elapsed)}
 		}
 		return healthcheck.HealthCheckResult{
+			Data:        data,
 			Status:      healthcheck.Healthy,
 			Description: fmt.Sprintf("Response. Elapsed: %v", elapsed)}
 	}
