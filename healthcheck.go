@@ -122,7 +122,8 @@ func runHealthCheck(healthCtx HealthCheckContext) HealthCheckResult {
 }
 
 func (registration HealthCheckRegistration) healthCheckAsync(healthCtx HealthCheckContext) <-chan HealthCheckResult {
-	ch := make(chan HealthCheckResult)
+	// buffered channel prevents memory leaks in case of pessimistic cancellation
+	ch := make(chan HealthCheckResult, 1)
 	go func() {
 		defer close(ch)
 		ch <- registration.HealthCheck(healthCtx)
